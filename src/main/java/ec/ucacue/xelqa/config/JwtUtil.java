@@ -39,7 +39,7 @@ public class JwtUtil {
                 .compact();
 
     }
-        // Añade esto en tu JwtUtil.java
+    // Añade esto en tu JwtUtil.java
 
     public String extraerCorreo(String token) {
         return Jwts.parserBuilder()
@@ -58,5 +58,15 @@ public class JwtUtil {
             return false; // Si el token expiró, está mal escrito o es falso, retorna false
         }
 
+    }
+
+    // Agrega esto al final de tu JwtUtil.java
+    public String extraerRol(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .get("rol", String.class);
     }
 }
