@@ -34,30 +34,41 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())
-            // Activamos la configuración de CORS global
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
+                .csrf(csrf -> csrf.disable())
+                // Activamos la configuración de CORS global
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll() // Público para todos
-                
+                .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll() // SWAGGER PÚBLICO
+                .requestMatchers("/uploads/**").permitAll()
                 // --- REGLAS DE LA BILLETERA (VALLET) ---
                 .requestMatchers("/api/wallet/recarga").hasAnyRole("ADMIN_GENERAL", "ADMIN_SERVICIO") // Solo admins recargan dinero
-                .requestMatchers("/api/wallet/cobro").hasAnyRole("ADMIN_GENERAL", "ADMIN_SERVICIO")   // Solo el bar puede cobrar
-                .requestMatchers("/api/wallet/saldo/**").hasAnyRole("USUARIO", "ADMIN_GENERAL")        // El estudiante ve su propio saldo
-                
+                .requestMatchers("/api/wallet/cobro").hasAnyRole("ADMIN_GENERAL", "ADMIN_SERVICIO") // Solo el bar puede cobrar
+                .requestMatchers("/api/wallet/saldo/**").hasAnyRole("USUARIO", "ADMIN_GENERAL") // El estudiante ve su propio saldo
+
                 // --- REGLAS DE LA CAFETERÍA (PRODUCTOS) ---
                 .requestMatchers(HttpMethod.GET, "/api/productos/**").authenticated() // Cualquier usuario autenticado puede ver el menú
                 .requestMatchers(HttpMethod.POST, "/api/productos/**").hasAnyRole("ADMIN_GENERAL", "ADMIN_SERVICIO") // Solo admins crean
-                .requestMatchers(HttpMethod.PUT, "/api/productos/**").hasAnyRole("ADMIN_GENERAL", "ADMIN_SERVICIO")  // Solo admins editan
+                .requestMatchers(HttpMethod.PUT, "/api/productos/**").hasAnyRole("ADMIN_GENERAL", "ADMIN_SERVICIO") // Solo admins editan
                 .requestMatchers(HttpMethod.DELETE, "/api/productos/**").hasAnyRole("ADMIN_GENERAL", "ADMIN_SERVICIO") // Solo admins ocultan
+                // --- REGLAS DE NOTICIAS ---
+                .requestMatchers(HttpMethod.GET, "/api/noticias/**").authenticated() // Todos los estudiantes leen
+                .requestMatchers(HttpMethod.POST, "/api/noticias/**").hasRole("ADMIN_GENERAL") // Solo el Admin de la U publica
 
+                // --- REGLAS DE TRANSACCIONES ---
+                // El estudiante solo puede acceder a su propio historial
+                .requestMatchers("/api/transacciones/mis-transacciones/**").hasAnyRole("USUARIO", "ADMIN_GENERAL")
+                // Solo el personal autorizado ve el flujo de caja completo
+                .requestMatchers(HttpMethod.GET, "/api/transacciones").hasAnyRole("ADMIN_GENERAL", "ADMIN_SERVICIO")
+                // --- REGLAS DE ESTADÍSTICAS (DASHBOARD) ---
+                .requestMatchers("/api/estadisticas/**").hasAnyRole("ADMIN_GENERAL", "ADMIN_SERVICIO")
                 // --- REGLAS DE LA CREDENCIAL ---
                 .requestMatchers("/api/credencial/**").authenticated() // Cualquier usuario validado ve la credencial
-                
+
                 .anyRequest().authenticated()
-            )
-            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                )
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -69,7 +80,7 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(List.of("*")); // Permite peticiones desde cualquier IP o dominio (Next.js, Android)
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
